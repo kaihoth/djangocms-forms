@@ -75,6 +75,9 @@
         ajaxError: function() {
             this.resetForm();
 
+            var formInvalidEvent = new CustomEvent('formInvalid', { 'detail': 'The form is not valid.'});
+            document.dispatchEvent(formInvalidEvent);
+
             var formErrors = $(this.settings.errorList);
             $(this.settings.errorItem).html(this.settings.ajaxErrorMsg).appendTo(formErrors);
             this.form.find(this.settings.formErrors).append(formErrors).fadeIn('slow');
@@ -99,6 +102,9 @@
         },
         formInvalid: function(response) {
             this.resetForm();
+
+            var formInvalidEvent = new CustomEvent('formInvalid', { 'detail': 'The form is not valid.'});
+            document.dispatchEvent(formInvalidEvent);
 
             $.each(response.errors, function(name, errorList) {
                 if (name == '__all__') {
