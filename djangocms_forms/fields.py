@@ -44,48 +44,16 @@ class FormBuilderFileField(forms.FileField):
                 _('Sorry, this filetype is not allowed. '
                   'Allowed filetype: %s') % ', '.join(self.allowed_file_types))
 
-        if uploaded_file.size > self.max_upload_size:
+        if uploaded_file._size > self.max_upload_size:
             params = {
                 'max_size': filesizeformat(self.max_upload_size),
-                'size': filesizeformat(uploaded_file.size)
+                'size': filesizeformat(uploaded_file._size)
             }
             msg = _(
                 'Please keep file size under %(max_size)s. Current size is %(size)s.') % params
             raise forms.ValidationError(msg)
 
         return uploaded_file
-
-
-class PluginReferenceField(models.ForeignKey):
-    def __init__(self, *args, **kwargs):
-        kwargs.update({'null': True})  # always allow Null
-        kwargs.update({'editable': False})  # never allow edits in admin
-        kwargs.update({'on_delete': SET_NULL})  # never delete plugin
-        super(PluginReferenceField, self).__init__(*args, **kwargs)
-
-    def _create(self, model_instance):
-        return self.remote_field.model._default_manager.create(name=model_instance.name)
-
-    def pre_save(self, model_instance, add):
-        if not model_instance.pk and add:
-            setattr(model_instance, self.name, self._create(model_instance))
-        else:
-            reference = getattr(model_instance, self.name)
-            if not reference:
-                setattr(model_instance, self.name, self._create(model_instance))
-                reference = getattr(model_instance, self.name)
-            if reference.name != model_instance.name:
-                reference.name = model_instance.name
-                reference.save()
-        return super(PluginReferenceField, self).pre_save(model_instance, add)
-
-    def south_field_triple(self):
-        """Returns a suitable description of this field for South."""
-        # We'll just introspect ourselves, since we inherit.
-        from south.modelsinspector import introspector
-        field_class = 'django.db.models.fields.related.ForeignKey'
-        args, kwargs = introspector(self)
-        return (field_class, args, kwargs)
 
 
 class MultipleChoiceAutoCompleteField(forms.MultipleChoiceField):
