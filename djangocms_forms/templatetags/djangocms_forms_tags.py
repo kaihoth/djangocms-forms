@@ -1,11 +1,11 @@
 from django import forms, template
 from django.template.defaultfilters import yesno
 from django.utils.safestring import mark_safe
-from django.utils.six import string_types
+from six import string_types
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
 
-from djangocms_forms.fields import HoneyPotField
+from ..fields import HoneyPotField
 
 register = template.Library()
 
