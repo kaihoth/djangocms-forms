@@ -13,7 +13,7 @@ from django.template.defaultfilters import slugify
 from django.template.loader import get_template, render_to_string
 from django.utils.translation import ugettext_lazy as _
 
-from ipware.ip import get_ip
+from ipware.ip import get_client_ip
 from unidecode import unidecode
 
 from .fields import FormBuilderFileField, HoneyPotField, MultipleChoiceAutoCompleteField, ReCaptchaField
@@ -121,7 +121,7 @@ class FormBuilder(forms.Form):
         elif form_definition.use_recaptcha:
             field_name = 'recaptcha_%s' % int_to_hashid(form_definition.pk, min_length=8)
             self.fields[field_name] = ReCaptchaField(label=_('Are you a robot?'))
-
+            
     def get_unique_field_name(self, field):
         field_name = field.field_name or field.label
         field_name = '%s' % (slugify(unidecode(field_name).replace('-', '_')))
@@ -151,6 +151,11 @@ class FormBuilder(forms.Form):
         field_attrs = field.build_field_attrs()
         widget_attrs = field.build_widget_attrs()
 
+        if field.placeholder_text and not field.initial:
+            widget_attrs.update({
+                'placeholder': field.placeholder_text,
+            })
+
         field_attrs.update({
             'widget': forms.TextInput(attrs=widget_attrs)
         })
@@ -160,6 +165,11 @@ class FormBuilder(forms.Form):
         field_attrs = field.build_field_attrs()
         widget_attrs = field.build_widget_attrs()
 
+        if field.placeholder_text and not field.initial:
+            widget_attrs.update({
+                'placeholder': field.placeholder_text,
+            })
+
         field_attrs.update({
             'widget': forms.Textarea(attrs=widget_attrs)
         })
@@ -168,6 +178,11 @@ class FormBuilder(forms.Form):
     def prepare_email(self, field):
         field_attrs = field.build_field_attrs()
         widget_attrs = field.build_widget_attrs(extra_attrs={'autocomplete': 'email'})
+
+        if field.placeholder_text and not field.initial:
+            widget_attrs.update({
+                'placeholder': field.placeholder_text,
+            })
 
         field_attrs.update({
             'widget': forms.EmailInput(attrs=widget_attrs),
@@ -332,8 +347,8 @@ class FormBuilder(forms.Form):
     def save_to_db(self, form_data, request, referrer):
         user = request.user if request.user.is_authenticated else None
         FormSubmission.objects.create(
-            plugin=self.form_definition.plugin_reference,
-            ip=get_ip(request),
+            plugin=self.form_definition.plugin,
+            ip=get_client_ip(request),
             referrer=referrer,
             form_data=form_data,
             created_by=user)
@@ -373,7 +388,7 @@ class SubmissionExportForm(forms.Form):
         ('csv', _('CSV')),
         ('json', _('JSON')),
         ('yaml', _('YAML')),
-        ('xlsx', _('Microsoft Excel')),
+        ('xls', _('Microsoft Excel')),
     )
 
     form = forms.ModelChoiceField(
@@ -381,7 +396,7 @@ class SubmissionExportForm(forms.Form):
         error_messages={'required': _('Please select a form.')},
         help_text=_('Select the form you would like to export entry data from. '
                     'You may only export data from one form at a time.'))
-    file_type = forms.ChoiceField(choices=FORMAT_CHOICES, initial='xlsx', required=False)
+    file_type = forms.ChoiceField(choices=FORMAT_CHOICES, initial='xls', required=False)
     headers = MultipleChoiceAutoCompleteField(
         label=_('Fields'), required=False,
         widget=FilteredSelectMultiple(verbose_name=_('Fields'), is_stacked=False),)
