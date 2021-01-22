@@ -6,7 +6,6 @@ import re
 
 from django.db import models
 from django.template.defaultfilters import slugify
-from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
 
 from cms.models import CMSPlugin
@@ -15,11 +14,9 @@ from jsonfield import JSONField
 from unidecode import unidecode
 
 from .conf import settings
-from .fields import PluginReferenceField
 from .managers import ActiveFormManager
 
 
-@python_2_unicode_compatible
 class Form(models.Model):
     name = models.CharField(_('Name'), max_length=255, db_index=True, editable=False)
 
@@ -34,7 +31,6 @@ class Form(models.Model):
         return self.name
 
 
-@python_2_unicode_compatible
 class FormDefinition(CMSPlugin):
     name = models.CharField(_('Form Name'), max_length=255)
 
@@ -89,7 +85,7 @@ class FormDefinition(CMSPlugin):
         default=settings.DJANGOCMS_FORMS_DEFAULT_TEMPLATE,
     )
 
-    plugin_reference = PluginReferenceField(Form, related_name='plugin')
+    plugin = models.ForeignKey(Form,on_delete=models.CASCADE, null=True)
 
     class Meta:
         verbose_name_plural = _('forms')
@@ -125,8 +121,16 @@ class FormDefinition(CMSPlugin):
             field.form = self
             field.save()
 
+    def save(self, *args, **kwargs):
+        if not self.plugin:
+            form = Form()
+            form.name = self.name
+            form.save()
+            self.plugin = form
+            self.save()
+        super().save(*args, **kwargs)
 
-@python_2_unicode_compatible
+
 class FormField(models.Model):
     form = models.ForeignKey(FormDefinition, related_name='fields', on_delete=models.CASCADE)
     field_type = models.CharField(
@@ -179,12 +183,6 @@ class FormField(models.Model):
                 and 'required' not in attrs and self.field_type not in ('hidden', 'radio', )):
             attrs['required'] = 'required'
 
-        if self.field_type in settings.DJANGOCMS_FORMS_FIELD_TYPES_WITH_PLACEHOLDER:
-            if self.placeholder_text and not self.initial:
-                attrs.update({
-                    'placeholder': self.placeholder_text,
-                })
-
         css_classes = {
             '__all__': (),
             'text': ('textinput',),
@@ -220,13 +218,12 @@ class FormField(models.Model):
             return [(choice, choice) for choice in choices]
 
 
-@python_2_unicode_compatible
 class FormSubmission(models.Model):
     plugin = models.ForeignKey(
-        Form, verbose_name=_('Form'), editable=False, related_name='submissions', on_delete=models.CASCADE)
+        Form, verbose_name=_('Form'), editable=False, related_name='submissions', on_delete=models.SET_NULL, null=True)
     creation_date = models.DateTimeField(_('Date'), auto_now=True)
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, verbose_name=_('User'), editable=False, null=True, on_delete=models.CASCADE)
+        settings.AUTH_USER_MODEL, verbose_name=_('User'), editable=False, null=True, on_delete=models.SET_NULL)
     ip = models.GenericIPAddressField(verbose_name='IP', blank=True, null=True)
     referrer = models.CharField(_('Referrer URL'), max_length=150, blank=True)
 
